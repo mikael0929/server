@@ -74,6 +74,10 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3001;
 
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
+
 setInterval(() => {
   if (!gameState.yPosition) return;
   const path = bfsStepTowardsTarget(gameState.maze, gameState.yPosition, gameState.playerPosition);

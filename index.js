@@ -168,6 +168,18 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("restart-first-maze", () => {
+  if (!gameState) return;
+  const resetMaze = cloneMaze(0);
+  gameState.mazeIndex = 0;
+  gameState.maze = resetMaze;
+  gameState.playerPosition = findStartInMaze(resetMaze);
+  gameState.exitPosition = findExitInMaze(resetMaze);
+  gameState.yPosition = findYStartInMaze(resetMaze);
+  io.emit("init-maze", gameState.maze);
+  io.emit("game-state", gameState);
+  });
+
   socket.on("disconnect", () => {
     console.log("❌ Player disconnected:", socket.id);
     gameState.players = gameState.players.filter(p => p.id !== socket.id);

@@ -1,5 +1,5 @@
 // server/gameState.js
-const roles = ["a", "b", "c", "d", "e", "f"];
+const roles = ["a", "b", "c", "d", "e"];
 
 function initGameState() {
   return {
@@ -66,7 +66,7 @@ function updatePlayerPosition(state, role, direction) {
   if (role === "c" && direction === "right") newX++;
   if (role === "d" && direction === "down") newY++;
   if (role === "e" && direction === "up") newY--;
-  if (role === "f" && direction === "jump") newY -= 2;
+  //if (role === "f" && direction === "jump") newY -= 2;
 
   // 좌표 유효성 검사
   const isValid =

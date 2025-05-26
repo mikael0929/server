@@ -78,7 +78,7 @@ setInterval(() => {
   if (!gameState.yPosition) return;
   const path = bfsStepTowardsTarget(gameState.maze, gameState.yPosition, gameState.playerPosition);
   if (path.length > 1) {
-    const steps = path.slice(1, 2);// 3-1 =2 2칸 까지 이동 가능능
+    const steps = path.slice(1, 2);// 3-1 =2 2칸 까지 이동 가능
     gameState.yPosition = steps[steps.length - 1];
     if (
       gameState.yPosition.x === gameState.playerPosition.x &&

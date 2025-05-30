@@ -121,8 +121,7 @@ setInterval(() => {
     }
   }
 
-  if (tick % 4 === 0)
-  {
+  
     if (!gameState.yPositions || gameState.yPositions.length === 0) return;
 
   for (const yPos of gameState.yPositions) {
@@ -142,9 +141,10 @@ setInterval(() => {
       }
     }
   }
-  }
-
-  const updatedYPositions = gameState.yPositions.map((yPos) => {
+  
+  if (tick % 4 === 0)
+  {
+    const updatedYPositions = gameState.yPositions.map((yPos) => {
     const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
     return path.length > 1 ? path[1] : yPos;
   });
@@ -161,11 +161,11 @@ for (const newY of updatedYPositions) {
     io.emit("init-maze", gameState.maze);
     io.emit("game-state", gameState);
     return;
+    }
   }
-}
   gameState.yPositions = updatedYPositions;
   io.emit("game-state", gameState);
-}, 100); // 루프는 1초마다 돌고, 내부에서 분기처리로 속도 차이 구현
+  }}, 100); // 루프는 1초마다 돌고, 내부에서 분기처리로 속도 차이 구현
 
 
 io.on("connection", (socket) => {

@@ -142,7 +142,7 @@ setInterval(() => {
     }
   }
   
-  if (tick % 4 === 0)
+  if (tick % 6 === 0)
   {
     const updatedYPositions = gameState.yPositions.map((yPos) => {
     const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);

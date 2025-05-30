@@ -11,18 +11,22 @@ const {
   updatePlayerPosition,
   findStartInMaze,
   findExitInMaze,
-  findYStartInMaze
+  findYStartInMaze,
+  findAllYStartsInMaze
 } = require("./gameState");
 
-const originalMazes = [
-  JSON.parse(fs.readFileSync(path.join(__dirname, "mazes/maze1.json"))),
-  JSON.parse(fs.readFileSync(path.join(__dirname, "mazes/maze2.json"))),
-  JSON.parse(fs.readFileSync(path.join(__dirname, "mazes/maze3.json"))),
-  JSON.parse(fs.readFileSync(path.join(__dirname, "mazes/maze4.json"))),
-];
+
+
+const originalMazes = Array.from({ length: 10 }, (_, i) =>
+  JSON.parse(JSON.stringify(JSON.parse(fs.readFileSync(path.join(__dirname, `mazes/maze${i + 1}.json`)))))
+);
 
 function cloneMaze(index) {
   return JSON.parse(JSON.stringify(originalMazes[index]));
+}
+
+function distance(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 }
 
 function bfsStepTowardsTarget(maze, start, target) {
@@ -48,7 +52,7 @@ function bfsStepTowardsTarget(maze, start, target) {
       if (
         ny >= 0 && ny < maze.length &&
         nx >= 0 && nx < maze[0].length &&
-        (maze[ny][nx] === 0 || maze[ny][nx] === 2) &&
+        (maze[ny][nx] === 0 || maze[ny][nx] === 2 || maze[ny][nx] === 3) &&
         !visited.has(`${nx},${ny}`)
       ) {
         visited.add(`${nx},${ny}`);
@@ -64,7 +68,7 @@ const firstMaze = cloneMaze(0);
 gameState.maze = firstMaze;
 gameState.playerPosition = findStartInMaze(firstMaze);
 gameState.exitPosition = findExitInMaze(firstMaze);
-gameState.yPosition = findYStartInMaze(firstMaze);
+gameState.yPositions = findAllYStartsInMaze(firstMaze);
 
 const app = express();
 const server = http.createServer(app);
@@ -74,29 +78,95 @@ const io = new Server(server, {
 
 const PORT = process.env.PORT || 3001;
 
+let tick = 0;
 setInterval(() => {
-  if (!gameState.yPosition) return;
-  const path = bfsStepTowardsTarget(gameState.maze, gameState.yPosition, gameState.playerPosition);
-  if (path.length > 1) {
-    const steps = path.slice(1, 2);// 3-1 =2 2칸 까지 이동 가능
-    gameState.yPosition = steps[steps.length - 1];
-    if (
-      gameState.yPosition.x === gameState.playerPosition.x &&
-      gameState.yPosition.y === gameState.playerPosition.y
-    ) {
-      console.log("☠️ Y caught X! Resetting game...");
-      const currentMaze = cloneMaze(gameState.mazeIndex);
-      gameState.maze = currentMaze;
-      gameState.playerPosition = findStartInMaze(currentMaze);
-      gameState.exitPosition = findExitInMaze(currentMaze);
-      gameState.yPosition = findYStartInMaze(currentMaze);
-      io.emit("init-maze", gameState.maze);
-      io.emit("game-state", gameState);
-    } else {
-      io.emit("game-state", gameState);
+  tick++;
+
+  // 🎯 3번 출구는 매 초마다 움직이게
+  if (tick % 3 === 0) {
+    if (gameState.maze[gameState.exitPosition.y][gameState.exitPosition.x] === 3) {
+      const exit = gameState.exitPosition;
+      const directions = [
+        { dx: -1, dy: 0 },
+        { dx: 1, dy: 0 },
+        { dx: 0, dy: -1 },
+        { dx: 0, dy: 1 },
+      ];
+
+      let bestMove = exit;
+      let maxDistance = distance(exit, gameState.playerPosition);
+
+      for (const { dx, dy } of directions) {
+        const nx = exit.x + dx;
+        const ny = exit.y + dy;
+
+        if (
+          ny >= 0 && ny < gameState.maze.length &&
+          nx >= 0 && nx < gameState.maze[0].length &&
+          gameState.maze[ny][nx] === 0
+        ) {
+          const d = distance({ x: nx, y: ny }, gameState.playerPosition);
+          if (d > maxDistance) {
+            maxDistance = d;
+            bestMove = { x: nx, y: ny };
+          }
+        }
+      }
+
+      if (bestMove.x !== exit.x || bestMove.y !== exit.y) {
+        gameState.maze[exit.y][exit.x] = 0;
+        gameState.maze[bestMove.y][bestMove.x] = 3;
+        gameState.exitPosition = bestMove;
+      }
     }
   }
-}, 400);
+
+  if (tick % 4 === 0)
+  {
+    if (!gameState.yPositions || gameState.yPositions.length === 0) return;
+
+  for (const yPos of gameState.yPositions) {
+    const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
+    if (path.length > 1) {
+      const nextStep = path[1];
+      if (nextStep.x === gameState.playerPosition.x && nextStep.y === gameState.playerPosition.y) {
+        console.log("☠️ Y caught X during interval! Resetting game...");
+        const resetMaze = cloneMaze(gameState.mazeIndex);
+        gameState.maze = resetMaze;
+        gameState.playerPosition = findStartInMaze(resetMaze);
+        gameState.exitPosition = findExitInMaze(resetMaze);
+        gameState.yPositions = findAllYStartsInMaze(resetMaze);
+        io.emit("init-maze", gameState.maze);
+        io.emit("game-state", gameState);
+        return;
+      }
+    }
+  }
+  }
+
+  const updatedYPositions = gameState.yPositions.map((yPos) => {
+    const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
+    return path.length > 1 ? path[1] : yPos;
+  });
+
+  // ✅ Y가 X와 충돌했는지 검사 (이동 후)
+for (const newY of updatedYPositions) {
+  if (newY.x === gameState.playerPosition.x && newY.y === gameState.playerPosition.y) {
+    console.log("☠️ Y collided with X after moving!");
+    const resetMaze = cloneMaze(gameState.mazeIndex);
+    gameState.maze = resetMaze;
+    gameState.playerPosition = findStartInMaze(resetMaze);
+    gameState.exitPosition = findExitInMaze(resetMaze);
+    gameState.yPositions = findAllYStartsInMaze(resetMaze);
+    io.emit("init-maze", gameState.maze);
+    io.emit("game-state", gameState);
+    return;
+  }
+}
+  gameState.yPositions = updatedYPositions;
+  io.emit("game-state", gameState);
+}, 100); // 루프는 1초마다 돌고, 내부에서 분기처리로 속도 차이 구현
+
 
 io.on("connection", (socket) => {
   console.log("👤 New player connected:", socket.id);
@@ -117,27 +187,54 @@ io.on("connection", (socket) => {
   });
 
   socket.on("move", (data) => {
-    const player = gameState.players.find((p) => p.id === socket.id);
-    if (player) {
-      updatePlayerPosition(gameState, player.role, data.direction);
-      const { x, y } = gameState.playerPosition;
-      const { x: exitX, y: exitY } = gameState.exitPosition;
-      const reachedExit = x === exitX && y === exitY;
 
-      if (
-      gameState.yPosition &&
-      gameState.playerPosition.x === gameState.yPosition.x &&
-      gameState.playerPosition.y === gameState.yPosition.y
+  const player = gameState.players.find((p) => p.id === socket.id);
+  if (player) {
+
+    
+    const result = updatePlayerPosition(gameState, player.role, data.direction);
+    const { isValid, newX, newY } = result;
+    const currentCell = gameState.maze[newY]?.[newX];
+    //const currentCell = gameState.maze[y][x];
+
+    const { x, y } = gameState.playerPosition;
+    const { x: exitX, y: exitY } = gameState.exitPosition;
+    const cell = gameState.maze[y][x];  // 현재 플레이어 위치의 셀 값
+    const isExitCell = cell === 2 || cell === 3;
+    const reachedExit = isExitCell;  // 셀 자체가 출구인지 확인
+
+    if (gameState.mazeIndex <= 6 && !isValid && gameState.maze[newY]?.[newX] === 1) {
+      if (!isValid){
+        console.log("🧱 벽(1)에 닿아서 리셋됩니다!");
+
+        const resetMaze = cloneMaze(gameState.mazeIndex);
+        gameState.maze = resetMaze;
+        gameState.playerPosition = findStartInMaze(resetMaze);
+        gameState.exitPosition = findExitInMaze(resetMaze);
+        gameState.yPositions = findAllYStartsInMaze(resetMaze);
+
+      }
+    io.emit("init-maze", gameState.maze);
+    io.emit("game-state", gameState);
+    return;
+    }
+    // ✅ 여기서 충돌 감지 및 전체 리셋
+    if (
+      gameState.yPositions.some(
+        (y) => y.x === newX && y.y === newY
+      )
     ) {
       console.log("☠️ X ran into Y! Resetting game...");
-      const currentMaze = cloneMaze(gameState.mazeIndex);
-      gameState.maze = currentMaze;
-      gameState.playerPosition = findStartInMaze(currentMaze);
-      gameState.exitPosition = findExitInMaze(currentMaze);
-      gameState.yPosition = findYStartInMaze(currentMaze);
+
+      const resetMaze = cloneMaze(gameState.mazeIndex);
+      gameState.maze = resetMaze;
+      gameState.playerPosition = findStartInMaze(resetMaze);
+      gameState.exitPosition = findExitInMaze(resetMaze);
+      gameState.yPositions = findAllYStartsInMaze(resetMaze);
+
       io.emit("init-maze", gameState.maze);
       io.emit("game-state", gameState);
-      return; // 충돌 후 종료
+      return;
     }
 
       if (reachedExit) {
@@ -149,7 +246,7 @@ io.on("connection", (socket) => {
           gameState.maze = newMaze;
           gameState.playerPosition = findStartInMaze(newMaze);
           gameState.exitPosition = findExitInMaze(newMaze);
-          gameState.yPosition = findYStartInMaze(newMaze);
+          gameState.yPositions = findAllYStartsInMaze(newMaze);
           io.emit("init-maze", gameState.maze);
           io.emit("game-state", gameState);
         } else {
@@ -160,7 +257,7 @@ io.on("connection", (socket) => {
           gameState.maze = resetMaze;
           gameState.playerPosition = findStartInMaze(resetMaze);
           gameState.exitPosition = findExitInMaze(resetMaze);
-          gameState.yPosition = findYStartInMaze(resetMaze);
+          gameState.yPositions = findAllYStartsInMaze(resetMaze);
         }
       } else {
         io.emit("game-state", gameState);
@@ -175,7 +272,7 @@ io.on("connection", (socket) => {
   gameState.maze = resetMaze;
   gameState.playerPosition = findStartInMaze(resetMaze);
   gameState.exitPosition = findExitInMaze(resetMaze);
-  gameState.yPosition = findYStartInMaze(resetMaze);
+  gameState.yPositions = findAllYStartsInMaze(resetMaze);
   io.emit("init-maze", gameState.maze);
   io.emit("game-state", gameState);
   });
@@ -193,4 +290,7 @@ io.on("connection", (socket) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log("✅ 초기 출구 위치:", gameState.exitPosition);
+  console.log("✅ 해당 좌표 maze 값:", gameState.maze[gameState.exitPosition.y][gameState.exitPosition.x]);
+
 });

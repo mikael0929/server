@@ -82,8 +82,8 @@ let tick = 0;
 setInterval(() => {
   tick++;
 
-  // 🎯 3번 출구는 매 초마다 움직이게
-  if (tick % 3 === 0) {
+  // 🎯 3번 출구
+  if (tick % 30 === 0) {//300ms
     if (gameState.maze[gameState.exitPosition.y][gameState.exitPosition.x] === 3) {
       const exit = gameState.exitPosition;
       const directions = [
@@ -142,7 +142,7 @@ setInterval(() => {
     }
   }
   
-  if (tick % 7 === 0)
+  if (tick % 70 === 0)//700ms
   {
     const updatedYPositions = gameState.yPositions.map((yPos) => {
     const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
@@ -165,7 +165,7 @@ for (const newY of updatedYPositions) {
   }
   gameState.yPositions = updatedYPositions;
   io.emit("game-state", gameState);
-  }}, 100); // 루프는 1초마다 돌고, 내부에서 분기처리로 속도 차이 구현
+  }}, 10); // 루프는 초마다 돌고, 내부에서 분기처리로 속도 차이 구현
 
 
 io.on("connection", (socket) => {

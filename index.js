@@ -117,6 +117,14 @@ setInterval(() => {
         gameState.maze[exit.y][exit.x] = 0;
         gameState.maze[bestMove.y][bestMove.x] = 3;
         gameState.exitPosition = bestMove;
+
+        // ✅ 출구가 움직였으니 모든 클라이언트에게 동기화
+        io.emit("game-state", {
+        maze: gameState.maze,
+        playerPosition: gameState.playerPosition,
+        yPositions: gameState.yPositions,
+        mazeIndex: gameState.mazeIndex,
+        });
       }
     }
   }
@@ -151,6 +159,14 @@ setInterval(() => {
   {
     const updatedYPositions = gameState.yPositions.map((yPos) => {
     const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
+
+    io.emit("game-state", {
+        maze: gameState.maze,
+        playerPosition: gameState.playerPosition,
+        yPositions: gameState.yPositions,
+        mazeIndex: gameState.mazeIndex,
+        });
+        
     return path.length > 1 ? path[1] : yPos;
   });
 
@@ -301,6 +317,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("admin-set-maze", (mazeIndex) => {
+  const player = gameState.players.find((p) => p.id === socket.id);
   if (player && player.role === "admin") {
     if (mazeIndex >= 0 && mazeIndex < originalMazes.length) {
       const newMaze = cloneMaze(mazeIndex);

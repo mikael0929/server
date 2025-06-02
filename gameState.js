@@ -75,6 +75,25 @@ function updatePlayerPosition(state, role, direction) {
   let newX = pos.x;
   let newY = pos.y;
 
+  if(role === 'a')
+  {
+    switch (direction) {
+    case "up":
+      newY -= 1;
+      break;
+    case "down":
+      newY += 1;
+      break;
+    case "left":
+      newX -= 1;
+      break;
+    case "right":
+      newX += 1;
+      break;
+  }
+  }
+  
+
   // 역할에 따라 이동 방향 계산
   if (role === "b" && direction === "left") newX--;
   if (role === "c" && direction === "right") newX++;

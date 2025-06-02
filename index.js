@@ -136,7 +136,12 @@ setInterval(() => {
         gameState.exitPosition = findExitInMaze(resetMaze);
         gameState.yPositions = findAllYStartsInMaze(resetMaze);
         io.emit("init-maze", gameState.maze);
-        io.emit("game-state", gameState);
+        io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
         return;
       }
     }
@@ -159,12 +164,22 @@ for (const newY of updatedYPositions) {
     gameState.exitPosition = findExitInMaze(resetMaze);
     gameState.yPositions = findAllYStartsInMaze(resetMaze);
     io.emit("init-maze", gameState.maze);
-    io.emit("game-state", gameState);
+    io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
     return;
     }
   }
   gameState.yPositions = updatedYPositions;
-  io.emit("game-state", gameState);
+  io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
   }}, 10); // 루프는 초마다 돌고, 내부에서 분기처리로 속도 차이 구현
 
 
@@ -215,7 +230,12 @@ io.on("connection", (socket) => {
 
       }
     io.emit("init-maze", gameState.maze);
-    io.emit("game-state", gameState);
+    io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
     return;
     }
     // ✅ 여기서 충돌 감지 및 전체 리셋
@@ -233,7 +253,12 @@ io.on("connection", (socket) => {
       gameState.yPositions = findAllYStartsInMaze(resetMaze);
 
       io.emit("init-maze", gameState.maze);
-      io.emit("game-state", gameState);
+      io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
       return;
     }
 
@@ -248,7 +273,12 @@ io.on("connection", (socket) => {
           gameState.exitPosition = findExitInMaze(newMaze);
           gameState.yPositions = findAllYStartsInMaze(newMaze);
           io.emit("init-maze", gameState.maze);
-          io.emit("game-state", gameState);
+          io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
         } else {
           console.log("🏁 모든 미로 클리어! 게임 종료!");
           io.emit("game-clear");
@@ -260,10 +290,37 @@ io.on("connection", (socket) => {
           gameState.yPositions = findAllYStartsInMaze(resetMaze);
         }
       } else {
-        io.emit("game-state", gameState);
+        io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
       }
     }
   });
+
+  socket.on("admin-set-maze", (mazeIndex) => {
+  if (player && player.role === "admin") {
+    if (mazeIndex >= 0 && mazeIndex < originalMazes.length) {
+      const newMaze = cloneMaze(mazeIndex);
+      gameState.mazeIndex = mazeIndex;
+      gameState.maze = newMaze;
+      gameState.playerPosition = findStartInMaze(newMaze);
+      gameState.exitPosition = findExitInMaze(newMaze);
+      gameState.yPositions = findAllYStartsInMaze(newMaze);
+
+      io.emit("init-maze", gameState.maze);
+      io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
+      console.log(`🛠️ Admin moved to maze ${mazeIndex + 1}`);
+    }
+  }
+});
 
   socket.on("restart-first-maze", () => {
   if (!gameState) return;
@@ -274,7 +331,12 @@ io.on("connection", (socket) => {
   gameState.exitPosition = findExitInMaze(resetMaze);
   gameState.yPositions = findAllYStartsInMaze(resetMaze);
   io.emit("init-maze", gameState.maze);
-  io.emit("game-state", gameState);
+  io.emit("game-state", {
+          maze: gameState.maze,
+          playerPosition: gameState.playerPosition,
+          yPositions: gameState.yPositions,
+          mazeIndex: gameState.mazeIndex, // 👈 추가됨
+        });
   });
 
   socket.on("disconnect", () => {

@@ -132,72 +132,58 @@ setInterval(() => {
   
     if (!gameState.yPositions || gameState.yPositions.length === 0) return;
 
-  for (const yPos of gameState.yPositions) {
-    const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
-    if (path.length > 1) {
-      const nextStep = path[1];
-      if (nextStep.x === gameState.playerPosition.x && nextStep.y === gameState.playerPosition.y) {
-        console.log("☠️ Y caught X during interval! Resetting game...");
-        const resetMaze = cloneMaze(gameState.mazeIndex);
-        gameState.maze = resetMaze;
-        gameState.playerPosition = findStartInMaze(resetMaze);
-        gameState.exitPosition = findExitInMaze(resetMaze);
-        gameState.yPositions = findAllYStartsInMaze(resetMaze);
-        io.emit("init-maze", gameState.maze);
-        io.emit("game-state", {
-          maze: gameState.maze,
-          playerPosition: gameState.playerPosition,
-          yPositions: gameState.yPositions,
-          mazeIndex: gameState.mazeIndex, // 👈 추가됨
-        });
-        return;
+  if (tick % 70 === 0) {
+    const prevPlayerPosition = { ...gameState.playerPosition };
+    const prevYPositions = [...gameState.yPositions];
+
+    const updatedYPositions = gameState.yPositions.map((yPos) => {
+      const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
+      return path.length > 1 ? path[1] : yPos;
+    });
+
+    // 충돌 2: Y가 X와 위치 겹침
+    for (const newY of updatedYPositions) {
+      if (newY.x === gameState.playerPosition.x && newY.y === gameState.playerPosition.y) {
+        console.log("☠️ Y collided with X after moving!");
+        return resetMazeState();
       }
     }
-  }
-  
-  if (tick % 70 === 0)//700ms
-  {
-    const updatedYPositions = gameState.yPositions.map((yPos) => {
-    const path = bfsStepTowardsTarget(gameState.maze, yPos, gameState.playerPosition);
 
-    io.emit("game-state", {
-        maze: gameState.maze,
-        playerPosition: gameState.playerPosition,
-        yPositions: gameState.yPositions,
-        mazeIndex: gameState.mazeIndex,
-        });
-        
-    return path.length > 1 ? path[1] : yPos;
-  });
-
-  // ✅ Y가 X와 충돌했는지 검사 (이동 후)
-for (const newY of updatedYPositions) {
-  if (newY.x === gameState.playerPosition.x && newY.y === gameState.playerPosition.y) {
-    console.log("☠️ Y collided with X after moving!");
-    const resetMaze = cloneMaze(gameState.mazeIndex);
-    gameState.maze = resetMaze;
-    gameState.playerPosition = findStartInMaze(resetMaze);
-    gameState.exitPosition = findExitInMaze(resetMaze);
-    gameState.yPositions = findAllYStartsInMaze(resetMaze);
-    io.emit("init-maze", gameState.maze);
-    io.emit("game-state", {
-          maze: gameState.maze,
-          playerPosition: gameState.playerPosition,
-          yPositions: gameState.yPositions,
-          mazeIndex: gameState.mazeIndex, // 👈 추가됨
-        });
-    return;
+    // 충돌 3: X와 Y가 위치 교차
+    for (let i = 0; i < updatedYPositions.length; i++) {
+      const newY = updatedYPositions[i];
+      const oldY = prevYPositions[i];
+      if (newY.x === prevPlayerPosition.x && newY.y === prevPlayerPosition.y &&
+          oldY.x === gameState.playerPosition.x && oldY.y === gameState.playerPosition.y) {
+        console.log("☠️ X and Y swapped places!");
+        return resetMazeState();
+      }
     }
-  }
-  gameState.yPositions = updatedYPositions;
-  io.emit("game-state", {
-          maze: gameState.maze,
-          playerPosition: gameState.playerPosition,
-          yPositions: gameState.yPositions,
-          mazeIndex: gameState.mazeIndex, // 👈 추가됨
-        });
-  }}, 10); // 루프는 초마다 돌고, 내부에서 분기처리로 속도 차이 구현
 
+    gameState.yPositions = updatedYPositions;
+    io.emit("game-state", {
+      maze: gameState.maze,
+      playerPosition: gameState.playerPosition,
+      yPositions: gameState.yPositions,
+      mazeIndex: gameState.mazeIndex,
+    });
+  }
+}, 10); // 루프는 초마다 돌고, 내부에서 분기처리로 속도 차이 구현
+
+function resetMazeState() {
+  const resetMaze = cloneMaze(gameState.mazeIndex);
+  gameState.maze = resetMaze;
+  gameState.playerPosition = findStartInMaze(resetMaze);
+  gameState.exitPosition = findExitInMaze(resetMaze);
+  gameState.yPositions = findAllYStartsInMaze(resetMaze);
+  io.emit("init-maze", gameState.maze);
+  io.emit("game-state", {
+    maze: gameState.maze,
+    playerPosition: gameState.playerPosition,
+    yPositions: gameState.yPositions,
+    mazeIndex: gameState.mazeIndex,
+  });
+}
 
 io.on("connection", (socket) => {
   console.log("👤 New player connected:", socket.id);

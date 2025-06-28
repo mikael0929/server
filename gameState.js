@@ -90,6 +90,8 @@ function updatePlayerPosition(state, role, direction) {
     case "right":
       newX += 1;
       break;
+    default:
+      return { isValid: false, newX: x, newY: y };  
   }
   }
   
